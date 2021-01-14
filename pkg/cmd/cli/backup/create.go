@@ -40,7 +40,7 @@ import (
 )
 
 const DefaultBackupTTL time.Duration = 30 * 24 * time.Hour
-const DefaultMaxRetries string = "0"
+const DefaultMaxRetries int = 0
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 	o := NewCreateOptions()
@@ -85,7 +85,7 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 type CreateOptions struct {
 	Name                    string
 	TTL                     time.Duration
-	MaxRetries              string
+	MaxRetries              int
 	SnapshotVolumes         flag.OptionalBool
 	DefaultVolumesToRestic  flag.OptionalBool
 	IncludeNamespaces       flag.StringArray

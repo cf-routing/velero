@@ -68,7 +68,7 @@ type BackupSpec struct {
 	// MaxRetries is a string describing how
 	// many times the backup will retry on PartiallyFailed phases
 	// +optional
-	MaxRetries string `json:"maxRetries,omitempty"`
+	MaxRetries int `json:"maxRetries,omitempty"`
 
 	// IncludeClusterResources specifies whether cluster-scoped resources
 	// should be included for consideration in the backup.

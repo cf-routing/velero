@@ -178,7 +178,7 @@ func (b *BackupBuilder) TTL(ttl time.Duration) *BackupBuilder {
 }
 
 // MaxRetries sets the number of retries (on partialFailures only) for the Backup.
-func (b *BackupBuilder) MaxRetries(retries string) *BackupBuilder {
+func (b *BackupBuilder) MaxRetries(retries int) *BackupBuilder {
 	b.object.Spec.MaxRetries = retries
 	return b
 }
