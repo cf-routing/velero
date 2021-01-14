@@ -40,6 +40,7 @@ import (
 )
 
 const DefaultBackupTTL time.Duration = 30 * 24 * time.Hour
+const DefaultMaxRetries string = "0"
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 	o := NewCreateOptions()
@@ -84,6 +85,7 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 type CreateOptions struct {
 	Name                    string
 	TTL                     time.Duration
+	MaxRetries              string
 	SnapshotVolumes         flag.OptionalBool
 	DefaultVolumesToRestic  flag.OptionalBool
 	IncludeNamespaces       flag.StringArray
@@ -109,6 +111,7 @@ func NewCreateOptions() *CreateOptions {
 		Labels:                  flag.NewMap(),
 		SnapshotVolumes:         flag.NewOptionalBool(nil),
 		IncludeClusterResources: flag.NewOptionalBool(nil),
+		MaxRetries:              DefaultMaxRetries,
 	}
 }
 
@@ -327,6 +330,7 @@ func (o *CreateOptions) BuildBackup(namespace string) (*velerov1api.Backup, erro
 			ExcludedResources(o.ExcludeResources...).
 			LabelSelector(o.Selector.LabelSelector).
 			TTL(o.TTL).
+			MaxRetries(o.MaxRetries).
 			StorageLocation(o.StorageLocation).
 			VolumeSnapshotLocations(o.SnapshotLocations...)
 		if len(o.OrderedResources) > 0 {

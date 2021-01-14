@@ -177,6 +177,12 @@ func (b *BackupBuilder) TTL(ttl time.Duration) *BackupBuilder {
 	return b
 }
 
+// MaxRetries sets the number of retries (on partialFailures only) for the Backup.
+func (b *BackupBuilder) MaxRetries(retries string) *BackupBuilder {
+	b.object.Spec.MaxRetries = retries
+	return b
+}
+
 // Expiration sets the Backup's expiration.
 func (b *BackupBuilder) Expiration(val time.Time) *BackupBuilder {
 	b.object.Status.Expiration = &metav1.Time{Time: val}
