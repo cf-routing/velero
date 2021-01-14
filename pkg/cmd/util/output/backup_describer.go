@@ -60,6 +60,9 @@ func DescribeBackup(
 		}
 
 		d.Printf("Phase:\t%s%s\n", phase, logsNote)
+		d.Println()
+		d.Printf("Max Retries:\t%d\n", backup.Spec.MaxRetries)
+		d.Printf("Retry Attempts:\t%d\n", backup.Status.RetryAttempts)
 
 		status := backup.Status
 		if len(status.ValidationErrors) > 0 {
