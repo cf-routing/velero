@@ -234,6 +234,8 @@ func (c *backupController) processBackup(key string) error {
 	switch original.Status.Phase {
 	case "", velerov1api.BackupPhaseNew:
 		// only process new backups
+	case velerov1api.BackupPhasePartiallyFailed:
+		return our_function(original, &c.client, log)
 	default:
 		return nil
 	}
@@ -788,4 +790,26 @@ func encodeToJSONGzip(data interface{}, desc string) (*bytes.Buffer, []error) {
 	}
 
 	return buf, nil
+}
+
+func our_function(backup *velerov1api.Backup, client *velerov1client.BackupsGetter, log *logrus.Entry) error {
+
+	newBackup := backup.DeepCopy()
+
+	if backup.Status.RetryAttempts < backup.Spec.MaxRetries {
+		newBackup.Status.Phase = velerov1api.BackupPhaseNew
+		newBackup.Status.RetryAttempts = backup.Status.RetryAttempts + 1
+		log.Info(fmt.Sprintf("Retry attempt %d of %d for backup \"%s\"", newBackup.Status.RetryAttempts, backup.Spec.MaxRetries, backup.ObjectMeta.Name))
+
+		_, err := patchBackup(backup, newBackup, *client)
+
+		if err != nil {
+			log.WithError(err)
+			return errors.Wrapf(err, "Error attempting to retry PartiallyFailed backup %s", newBackup.ObjectMeta.Name)
+		}
+	}
+
+	log.Info(fmt.Sprintf("Reached max retry attempts (%d/%d) for backup \"%s\"", newBackup.Status.RetryAttempts, backup.Spec.MaxRetries, backup.ObjectMeta.Name))
+
+	return nil
 }
