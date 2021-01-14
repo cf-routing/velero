@@ -292,6 +292,11 @@ type BackupStatus struct {
 	// +optional
 	Errors int `json:"errors,omitempty"`
 
+	// RetryAttempts is the number of times a PartiallyFailed Backup has been
+	// retried.
+	// +optional
+	RetryAttempts int `json:"retryAttempts,omitempty"`
+
 	// Progress contains information about the backup's execution progress. Note
 	// that this information is best-effort only -- if Velero fails to update it
 	// during a backup for any reason, it may be inaccurate/stale.

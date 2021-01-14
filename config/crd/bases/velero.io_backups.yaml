@@ -378,6 +378,10 @@ spec:
                 during execution of the backup.  The actual errors are in the backup's
                 log file in object storage.
               type: integer
+            retryAttempts:
+              description: RetryAttempts is the numbmer of times a
+                PartiallyFailed Backup has been retried.
+              type: integer
             expiration:
               description: Expiration is when this Backup is eligible for garbage-collection.
               format: date-time
