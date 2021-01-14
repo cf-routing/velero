@@ -117,6 +117,7 @@ func NewCreateOptions() *CreateOptions {
 
 func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.DurationVar(&o.TTL, "ttl", o.TTL, "How long before the backup can be garbage collected.")
+	flags.IntVar(&o.MaxRetries, "max-retries", o.MaxRetries, "How many times a PartiallyFailed backup is allowed to retry.")
 	flags.Var(&o.IncludeNamespaces, "include-namespaces", "Namespaces to include in the backup (use '*' for all namespaces).")
 	flags.Var(&o.ExcludeNamespaces, "exclude-namespaces", "Namespaces to exclude from the backup.")
 	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources).")
