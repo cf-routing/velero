@@ -231,11 +231,10 @@ func (c *backupController) processBackup(key string) error {
 	// informer sees the update. In the latter case, after the informer has seen the update to
 	// InProgress, we still need this check so we can return nil to indicate we've finished processing
 	// this key (even though it was a no-op).
+	fmt.Println("\n\nI am:", key, "\nMy phase is:\n\n", original.Status.Phase)
 	switch original.Status.Phase {
 	case "", velerov1api.BackupPhaseNew:
 		// only process new backups
-	case velerov1api.BackupPhasePartiallyFailed:
-		return our_function(original, &c.client, log)
 	default:
 		return nil
 	}
@@ -272,15 +271,36 @@ func (c *backupController) processBackup(key string) error {
 	c.metrics.RegisterBackupAttempt(backupScheduleName)
 
 	// execution & upload of backup
-	if err := c.runBackup(request); err != nil {
-		// even though runBackup sets the backup's phase prior
-		// to uploading artifacts to object storage, we have to
-		// check for an error again here and update the phase if
-		// one is found, because there could've been an error
-		// while uploading artifacts to object storage, which would
-		// result in the backup being Failed.
-		log.WithError(err).Error("backup failed")
-		request.Status.Phase = velerov1api.BackupPhaseFailed
+	for request.Status.RetryAttempts <= request.Spec.MaxRetries {
+		// on retries, sleep?
+
+		if err := c.runBackup(request); err != nil {
+			// even though runBackup sets the backup's phase prior
+			// to uploading artifacts to object storage, we have to
+			// check for an error again here and update the phase if
+			// one is found, because there could've been an error
+			// while uploading artifacts to object storage, which would
+			// result in the backup being Failed.
+			log.WithError(err).Error("backup failed")
+			request.Status.Phase = velerov1api.BackupPhaseFailed
+		}
+
+		// If we're not in the should-retry phase, we're done here.
+		if request.Status.Phase != velerov1api.BackupPhasePartiallyFailed {
+			break
+		}
+
+		// Make retrying visible to user
+		// update status
+		updatedBackup, err := patchBackup(original, request.Backup, c.client)
+		if err != nil {
+			return errors.Wrapf(err, "error updating Backup status to %s", request.Status.Phase)
+		}
+		// store ref to just-updated item for creating patch
+		original = updatedBackup
+		request.Backup = updatedBackup.DeepCopy()
+
+		request.Status.RetryAttempts += 1
 	}
 
 	switch request.Status.Phase {
@@ -790,26 +810,4 @@ func encodeToJSONGzip(data interface{}, desc string) (*bytes.Buffer, []error) {
 	}
 
 	return buf, nil
-}
-
-func our_function(backup *velerov1api.Backup, client *velerov1client.BackupsGetter, log *logrus.Entry) error {
-
-	newBackup := backup.DeepCopy()
-
-	if backup.Status.RetryAttempts < backup.Spec.MaxRetries {
-		newBackup.Status.Phase = velerov1api.BackupPhaseNew
-		newBackup.Status.RetryAttempts = backup.Status.RetryAttempts + 1
-		log.Info(fmt.Sprintf("Retry attempt %d of %d for backup \"%s\"", newBackup.Status.RetryAttempts, backup.Spec.MaxRetries, backup.ObjectMeta.Name))
-
-		_, err := patchBackup(backup, newBackup, *client)
-
-		if err != nil {
-			log.WithError(err)
-			return errors.Wrapf(err, "Error attempting to retry PartiallyFailed backup %s", newBackup.ObjectMeta.Name)
-		}
-	}
-
-	log.Info(fmt.Sprintf("Reached max retry attempts (%d/%d) for backup \"%s\"", newBackup.Status.RetryAttempts, backup.Spec.MaxRetries, backup.ObjectMeta.Name))
-
-	return nil
 }
