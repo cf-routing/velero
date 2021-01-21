@@ -265,7 +265,7 @@ func (c *backupController) processBackup(key string) error {
 	c.backupTracker.Add(request.Namespace, request.Name)
 	defer c.backupTracker.Delete(request.Namespace, request.Name)
 
-	log.Debug("Running backup")
+	log.Debug("$$ Running backup")
 
 	backupScheduleName := request.GetLabels()[velerov1api.ScheduleNameLabel]
 	c.metrics.RegisterBackupAttempt(backupScheduleName)
@@ -274,6 +274,7 @@ func (c *backupController) processBackup(key string) error {
 	for request.Status.RetryAttempts <= request.Spec.MaxRetries {
 		// on retries, sleep?
 
+		log.Debug("$$ Attempting to backup ", key, " attempt ", request.Status.RetryAttempts)
 		if err := c.runBackup(request); err != nil {
 			// even though runBackup sets the backup's phase prior
 			// to uploading artifacts to object storage, we have to
@@ -281,25 +282,29 @@ func (c *backupController) processBackup(key string) error {
 			// one is found, because there could've been an error
 			// while uploading artifacts to object storage, which would
 			// result in the backup being Failed.
-			log.WithError(err).Error("backup failed")
+			log.WithError(err).Error("$$ backup failed")
 			request.Status.Phase = velerov1api.BackupPhaseFailed
 		}
 
 		// If we're not in the should-retry phase, we're done here.
 		if request.Status.Phase != velerov1api.BackupPhasePartiallyFailed {
+			log.Debug("$$ Breaking because status is ", request.Status.Phase)
 			break
 		}
 
 		// Make retrying visible to user
 		// update status
+		log.Debug("$$ Attempting to patch backup ", key, " attempt ", request.Status.RetryAttempts)
 		updatedBackup, err := patchBackup(original, request.Backup, c.client)
 		if err != nil {
+			log.Debug("$$ Returning due to patch error ", key, " attempt ", request.Status.RetryAttempts)
 			return errors.Wrapf(err, "error updating Backup status to %s", request.Status.Phase)
 		}
 		// store ref to just-updated item for creating patch
 		original = updatedBackup
 		request.Backup = updatedBackup.DeepCopy()
 
+		log.Debug("$$ About to increment retries on", key, "attempt", request.Status.RetryAttempts)
 		request.Status.RetryAttempts += 1
 	}
 
@@ -597,13 +602,17 @@ func (c *backupController) runBackup(backup *pkgbackup.Request) error {
 		return err
 	}
 
+	// TODO: if we're retrying, then maybe its ok for it to exist??
+	backupLog.Info("$$ checking if backup already exists")
 	exists, err := backupStore.BackupExists(backup.StorageLocation.Spec.StorageType.ObjectStorage.Bucket, backup.Name)
 	if exists || err != nil {
 		backup.Status.Phase = velerov1api.BackupPhaseFailed
 		backup.Status.CompletionTimestamp = &metav1.Time{Time: c.clock.Now()}
 		if err != nil {
+			backupLog.Info("$$ could not check if backup exists")
 			return errors.Wrapf(err, "error checking if backup already exists in object storage")
 		}
+		backupLog.Info("$$ backup exists already; erroring")
 		return errors.Errorf("backup already exists in object storage")
 	}
 
